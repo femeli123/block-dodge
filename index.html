@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Dodge</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #090d1a; color: white;
+    font-family: Arial, sans-serif; text-align: center;
+  }
+  h1 { color: #4deaff; text-shadow: 0 0 15px #00cfff; }
+  #score { font-size: 22px; margin: 12px; }
+  canvas {
+    display: block; width: min(92vw, 400px);
+    height: auto; margin: auto;
+    border: 2px solid #35dfff; border-radius: 12px;
+    background: #11182a; touch-action: none;
+  }
+  button {
+    border: 0; border-radius: 12px; padding: 15px 24px;
+    margin: 6px; font-size: 19px; font-weight: bold;
+    background: #20c9ef; color: #07101c;
+  }
+  #controls { margin: 12px; }
+  #message { min-height: 28px; color: #ffe66d; }
+</style>
+</head>
+<body>
+<h1>BLOCK DODGE</h1>
+<div id="score">Очки: 0</div>
+<canvas id="game" width="360" height="500"></canvas>
+<div id="message">Уворачивайся от красных блоков!</div>
+<div id="controls">
+  <button id="left">⬅️</button>
+  <button id="start">▶ Играть</button>
+  <button id="right">➡️</button>
+</div>
+<p>Управление: ← → или кнопки на экране</p>
+
+<script>
+const canvas = document.querySelector("#game");
+const ctx = canvas.getContext("2d");
+const scoreText = document.querySelector("#score");
+const message = document.querySelector("#message");
+
+let player, blocks, score, running, keys, lastTime, spawn;
+let animation;
+
+function reset() {
+  player = { x: 160, y: 440, w: 36, h: 36, speed: 260 };
+  blocks = [];
+  score = 0;
+  spawn = 0;
+  lastTime = 0;
+  keys = {};
+  running = true;
+  scoreText.textContent = "Очки: 0";
+  message.textContent = "Поехали!";
+  cancelAnimationFrame(animation);
+  animation = requestAnimationFrame(loop);
+}
+
+function drawPlayer() {
+  ctx.fillStyle = "#36eaff";
+  ctx.shadowColor = "#36eaff";
+  ctx.shadowBlur = 18;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.shadowBlur = 0;
+}
+
+function loop(time) {
+  if (!running) return;
+  const dt = Math.min((time - (lastTime || time)) / 1000, 0.04);
+  lastTime = time;
+
+  ctx.clearRect(0, 0, 360, 500);
+
+  // Фоновые звёзды
+  ctx.fillStyle = "#26344e";
+  for (let i = 0; i < 25; i++) {
+    ctx.fillRect((i * 73) % 360, (i * 97 + time * 0.025) % 500, 2, 2);
+  }
+
+  if (keys.left) player.x -= player.speed * dt;
+  if (keys.right) player.x += player.speed * dt;
+  player.x = Math.max(0, Math.min(360 - player.w, player.x));
+
+  spawn += dt;
+  if (spawn > Math.max(0.25, 0.8 - score / 500)) {
+    blocks.push({
+      x: Math.random() * 324,
+      y: -30, w: 24 + Math.random() * 24,
+      h: 24 + Math.random() * 24,
+      speed: 150 + Math.random() * 100 + score * 0.4
+    });
+    spawn = 0;
+  }
+
+  for (const b of blocks) {
+    b.y += b.speed * dt;
+    ctx.fillStyle = "#ff3864";
+    ctx.shadowColor = "#ff1744";
+    ctx.shadowBlur = 12;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.shadowBlur = 0;
+
+    if (
+      player.x < b.x + b.w &&
+      player.x + player.w > b.x &&
+      player.y < b.y + b.h &&
+      player.y + player.h > b.y
+    ) {
+      running = false;
+      message.textContent = "💥 Конец игры! Твой счёт: " + score;
+      return;
+    }
+  }
+
+  blocks = blocks.filter(b => b.y < 520);
+  score += dt * 10;
+  scoreText.textContent = "Очки: " + Math.floor(score);
+  drawPlayer();
+  animation = requestAnimationFrame(loop);
+}
+
+document.addEventListener("keydown", e => {
+  if (["ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+  if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") keys.left = true;
+  if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keys.right = true;
+  if (e.key === " " && !running) reset();
+});
+document.addEventListener("keyup", e => {
+  if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") keys.left = false;
+  if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keys.right = false;
+});
+
+function holdButton(id, direction) {
+  const btn = document.querySelector(id);
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    keys[direction] = true;
+  });
+  for (const ev of ["pointerup", "pointercancel", "pointerleave"]) {
+    btn.addEventListener(ev, () => keys[direction] = false);
+  }
+}
+holdButton("#left", "left");
+holdButton("#right", "right");
+document.querySelector("#start").onclick = reset;
+reset();
+</script>
+</body>
+</html>
